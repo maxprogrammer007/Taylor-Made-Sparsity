@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Taylor-Made Sparsity | NeurIPS 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --accent: #e8d5a3;
+    --accent2: #7ec8e3;
+    --accent3: #c084fc;
+    --text: #e8e8f0;
+    --muted: #888899;
+    --grad-start: #e8d5a3;
+    --grad-end: #7ec8e3;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 4rem;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2.5rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8rem 2rem 6rem;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(232,213,163,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 60%, rgba(126,200,227,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 60% at 20% 80%, rgba(192,132,252,0.04) 0%, transparent 50%);
+  }
+
+  /* Animated grid */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridShift 20s linear infinite;
+  }
+
+  @keyframes gridShift {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(60px); }
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+  }
+
+  .venue-tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(232,213,163,0.3);
+    padding: 0.4rem 1.2rem;
+    border-radius: 2px;
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.8rem, 6vw, 5.5rem);
+    font-weight: 900;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.8s ease 0.15s both;
+  }
+
+  .title-highlight {
+    background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 3rem;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .authors {
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .affiliation {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 3rem;
+    animation: fadeUp 0.8s ease 0.4s both;
+  }
+
+  .hero-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeUp 0.8s ease 0.45s both;
+  }
+
+  .btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.8rem 2rem;
+    border-radius: 2px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 500;
+  }
+
+  .btn-primary:hover {
+    background: #f0e0b0;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(232,213,163,0.25);
+  }
+
+  .btn-secondary {
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  /* Hero stats strip */
+  .hero-stats {
+    position: absolute;
+    bottom: 3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4rem;
+    z-index: 2;
+    animation: fadeUp 1s ease 0.6s both;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── SHARED SECTION STYLES ─── */
+  section {
+    position: relative;
+    z-index: 1;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    max-width: 120px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+  }
+
+  /* ─── ABSTRACT ─── */
+  .abstract-section {
+    padding: 8rem 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .abstract-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .abstract-card::before {
+    content: '"';
+    position: absolute;
+    top: -1rem;
+    left: 2rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 8rem;
+    color: rgba(232,213,163,0.06);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .abstract-text {
+    font-size: 1.05rem;
+    line-height: 1.85;
+    color: var(--text);
+    position: relative;
+  }
+
+  /* ─── METHOD ─── */
+  .method-section {
+    padding: 8rem 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .method-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+
+  .method-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    position: relative;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .method-card:hover {
+    border-color: rgba(232,213,163,0.3);
+    transform: translateY(-4px);
+  }
+
+  .method-card-full {
+    grid-column: 1 / -1;
+  }
+
+  .step-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: rgba(232,213,163,0.1);
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    line-height: 1;
+  }
+
+  .method-card h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.03em;
+  }
+
+  .method-card p {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* ─── MATH FORMULA BOX ─── */
+  .formula-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2.5rem;
+    text-align: center;
+    margin-top: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .formula-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+  }
+
+  .formula-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .formula {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .formula sub, .formula sup {
+    font-size: 0.7em;
+  }
+
+  .formula-desc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ─── PIPELINE DIAGRAM ─── */
+  .pipeline {
+    margin-top: 3.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+
+  .pipe-step {
+    flex: 1;
+    min-width: 160px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .pipe-arrow {
+    width: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 1.2rem;
+  }
+
+  .pipe-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .pipe-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  .pipe-desc {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ─── RESULTS ─── */
+  .results-section {
+    padding: 8rem 0;
+  }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 3rem;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .result-card.card-blue::after { background: var(--accent2); }
+  .result-card.card-gold::after { background: var(--accent); }
+  .result-card.card-purple::after { background: var(--accent3); }
+
+  .result-card h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .result-card .result-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ─── CHART (CSS-ONLY) ─── */
+  .bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .bar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    width: 90px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .bar-track {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    height: 20px;
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .bar-fill.ours {
+    background: linear-gradient(90deg, var(--accent), #f0c060);
+  }
+
+  .bar-fill.baseline {
+    background: rgba(136,136,153,0.5);
+  }
+
+  .bar-fill.depgraph {
+    background: rgba(126,200,227,0.5);
+  }
+
+  .bar-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text);
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  /* ─── TABLE ─── */
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 1rem;
+  }
+
+  .results-table th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+
+  .results-table tr:last-child td { border-bottom: none; }
+
+  .results-table tr.highlight-row td {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-gold { background: rgba(232,213,163,0.15); color: var(--accent); }
+  .badge-blue { background: rgba(126,200,227,0.15); color: var(--accent2); }
+
+  /* ─── KEY INSIGHTS ─── */
+  .insights-section {
+    padding: 8rem 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 3rem;
+  }
+
+  .insight-card {
+    padding: 2rem;
+    border-top: 2px solid var(--border);
+    transition: border-color 0.3s;
+  }
+
+  .insight-card:hover { border-color: var(--accent); }
+
+  .insight-icon {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .insight-title {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+  }
+
+  .insight-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* ─── COMPARISON TIMELINE ─── */
+  .compare-section {
+    padding: 8rem 0;
+  }
+
+  .compare-table-wrap {
+    margin-top: 3rem;
+    overflow-x: auto;
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .compare-table th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .compare-table th:first-child { text-align: left; }
+
+  .compare-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .compare-table td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .compare-table tr.ours-row td {
+    background: rgba(232,213,163,0.04);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .check { color: #4ade80; }
+  .cross { color: #f87171; }
+  .partial { color: #facc15; }
+
+  /* ─── CITATION ─── */
+  .citation-section {
+    padding: 8rem 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .bibtex-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.8;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bibtex-block::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+  }
+
+  .bibtex-block .kw { color: var(--accent2); }
+  .bibtex-block .val { color: var(--accent); }
+  .bibtex-block .field { color: var(--text); }
+
+  .copy-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.2rem;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: all 0.2s;
+    float: right;
+  }
+
+  .copy-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 3rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: gap;
+  }
+
+  .footer-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .footer-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    color: var(--accent);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .authors-row {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .author-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.88rem;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .author-chip:hover {
+    border-color: rgba(232,213,163,0.4);
+    background: rgba(232,213,163,0.06);
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .author-chip.main-author {
+    border-color: rgba(232,213,163,0.35);
+    background: rgba(232,213,163,0.06);
+  }
+
+  .author-name { font-weight: 400; }
+
+  .author-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 0.15rem 0.45rem;
+    border-radius: 1px;
+    font-weight: 500;
+  }
+
+  .author-icon {
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: color 0.2s;
+  }
+
+  .author-chip:hover .author-icon { color: var(--accent); }
+
+  .btn-soon { position: relative; }
+
+  .soon-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(126,200,227,0.2);
+    color: var(--accent2);
+    padding: 0.1rem 0.4rem;
+    border-radius: 1px;
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    .method-steps { grid-template-columns: 1fr; }
+    .results-grid { grid-template-columns: 1fr; }
+    .insights-grid { grid-template-columns: 1fr; }
+    .hero-stats { gap: 2rem; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Taylor-Made Sparsity</div>
+  <ul class="nav-links">
+    <li><a href="#abstract">Abstract</a></li>
+    <li><a href="#method">Method</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#citation">Citation</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-inner">
+    <div class="venue-tag">NeurIPS 2026 · Submitted</div>
+    <h1 class="hero-title">
+      <span class="title-highlight">Taylor-Made</span><br/>Sparsity
+    </h1>
+    <p class="hero-subtitle">First-Order Approximation for Structural Pruning in Object Detectors</p>
+    <div class="authors-row">
+      <a href="https://www.linkedin.com/in/maxprogrammer007/" target="_blank" class="author-chip main-author">
+        <span class="author-name">Abhinav Shukla</span>
+        <span class="author-badge">Lead</span>
+        <span class="author-icon">↗</span>
+      </a>
+      <a href="https://www.linkedin.com/in/shefali-bajaj-53b291174/" target="_blank" class="author-chip">
+        <span class="author-name">Shefali Bajaj</span>
+        <span class="author-icon">↗</span>
+      </a>
+      <a href="https://www.linkedin.com/in/nachikettapas/" target="_blank" class="author-chip">
+        <span class="author-name">Nachiket Tapas</span>
+        <span class="author-icon">↗</span>
+      </a>
+    </div>
+    <p class="affiliation">Submitted to the 40th Conference on Neural Information Processing Systems</p>
+    <div class="hero-links">
+      <a href="#" class="btn btn-primary">📄 Paper</a>
+      <a href="#" class="btn btn-secondary btn-soon">💻 Code <span class="soon-tag">Soon</span></a>
+      <a href="#" class="btn btn-secondary btn-soon">🤗 Models <span class="soon-tag">Soon</span></a>
+      <a href="#results" class="btn btn-secondary">📊 Results</a>
+    </div>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat-item">
+      <span class="stat-num">~1.5s</span>
+      <span class="stat-label">Importance Scoring</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">50%</span>
+      <span class="stat-label">Max Stable Sparsity</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">~150</span>
+      <span class="stat-label">FPS Maintained</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">0.17</span>
+      <span class="stat-label">GFLOPs @ 50% Sparsity</span>
+    </div>
+  </div>
+</section>
+
+<!-- ABSTRACT -->
+<section class="abstract-section" id="abstract">
+  <div class="container">
+    <div class="section-label reveal">Abstract</div>
+    <h2 class="section-title reveal">A faster, smarter way<br/>to prune neural networks.</h2>
+    <div class="abstract-card reveal">
+      <p class="abstract-text">
+        Deep neural networks have achieved strong performance in object detection, but their computational cost limits deployment on resource-constrained edge devices. Structured pruning offers a practical solution by removing entire channels or filters to reduce FLOPs and latency. However, commonly used magnitude-based criteria (e.g., L1-norm) are data-independent and often fail to reflect the true functional contribution of network components, leading to significant accuracy degradation at higher sparsity levels.
+        <br/><br/>
+        We propose <strong style="color:var(--accent)">Taylor-Made Sparsity</strong>, a fast and data-driven structured pruning framework based on a first-order Taylor approximation of the loss function. Our method estimates channel importance using the squared gradient–activation interaction, accumulated over a small calibration subset. This provides an efficient proxy for functional sensitivity that computes global importance scores across all layers of a deep network in approximately 1.5 seconds using standard backpropagation.
+        <br/><br/>
+        Extensive experiments on ResNet-50 (CIFAR-10) and MobileNetV2-SSD (MS COCO 2017) demonstrate that the proposed approach consistently improves the accuracy–efficiency trade-off over magnitude-based baselines, remaining stable at pruning ratios up to 50%.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section class="method-section" id="method">
+  <div class="container">
+    <div class="section-label reveal">Methodology</div>
+    <h2 class="section-title reveal">Three interlocking ideas,<br/>one deployable framework.</h2>
+
+    <!-- Pipeline -->
+    <div class="pipeline reveal">
+      <div class="pipe-step">
+        <div class="pipe-icon">🧮</div>
+        <div class="pipe-title">Pretrained Model</div>
+        <div class="pipe-desc">Start from any pretrained CNN detector — no retraining required</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">📦</div>
+        <div class="pipe-title">Calibration Subset</div>
+        <div class="pipe-desc">Forward + backward pass over a tiny unlabeled subset (≥10 samples)</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">∇</div>
+        <div class="pipe-title">Taylor Scoring</div>
+        <div class="pipe-desc">Compute squared grad-activation importance in ~1.5s globally</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🔗</div>
+        <div class="pipe-title">Dep. Graph Pruning</div>
+        <div class="pipe-desc">Group-aware structural removal preserving hardware alignment</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">⚡</div>
+        <div class="pipe-title">Fine-tune 5 Epochs</div>
+        <div class="pipe-desc">Rapid recovery of pruned representations at minimal cost</div>
+      </div>
+    </div>
+
+    <!-- Formula -->
+    <div class="formula-box reveal">
+      <div class="formula-label">Core Importance Criterion — Taylor-Made Score</div>
+      <div class="formula">
+        S<sup>Taylor</sup><sub>l,i</sub> = 𝔼<sub>x∼D<sub>cal</sub></sub> [ Σ<sub>h,w</sub> ( ∇<sub>A<sup>(l)</sup><sub>i</sub></sub> L(x) · A<sup>(l)</sup><sub>i</sub>(x) )<sup>2</sup> ]
+      </div>
+      <div class="formula-desc">
+        The importance of the i-th channel in layer l is the expected squared pixel-wise
+        gradient–activation product, accumulated over a calibration subset. Squaring eliminates
+        gradient sign cancellation and stabilizes estimation in multi-task detection settings.
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="method-steps">
+      <div class="method-card reveal">
+        <div class="step-num">01</div>
+        <h3>First-Order Taylor Approximation</h3>
+        <p>We formalize pruning as loss-preservation: removing channel i perturbs the loss by δA = −A. A first-order Taylor expansion yields a tractable scalar importance score without requiring computationally prohibitive Hessian computation.</p>
+      </div>
+      <div class="method-card reveal">
+        <div class="step-num">02</div>
+        <h3>Squared Grad-Act Proxy</h3>
+        <p>Rather than using the signed first-order estimate — which cancels across spatial positions — we adopt the squared formulation (∇L ⊙ A)². This stabilizes importance estimation under the noisy, multi-objective gradients of object detection losses.</p>
+      </div>
+      <div class="method-card reveal">
+        <div class="step-num">03</div>
+        <h3>Dependency-Aware Structural Pruning</h3>
+        <p>Taylor scores are routed through a dependency graph that encodes residual connections, concatenation, and multi-scale fusion. Channels are pruned synchronously within structural groups, ensuring valid tensor shapes across the full network.</p>
+      </div>
+      <div class="method-card reveal">
+        <div class="step-num">04</div>
+        <h3>Hardware Alignment Constraints</h3>
+        <p>Depthwise convolutions require channel counts divisible by group size. We enforce round_to=8 alignment and restrict pruning to adjacent pointwise layers. Detection heads are excluded to prevent NMS-level misalignments.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section class="results-section" id="results">
+  <div class="container">
+    <div class="section-label reveal">Experiments</div>
+    <h2 class="section-title reveal">Consistent gains across<br/>two benchmarks.</h2>
+
+    <div class="results-grid">
+      <!-- ResNet-50 Classification -->
+      <div class="result-card card-gold reveal">
+        <h3>ResNet-50 on CIFAR-10</h3>
+        <div class="result-meta">Top-1 Accuracy · Nominal Channel Sparsity</div>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">L1-Norm 30%</span>
+            <div class="bar-track"><div class="bar-fill baseline" style="width:97.7%"></div></div>
+            <span class="bar-val">94.30%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Ours 30%</span>
+            <div class="bar-track"><div class="bar-fill ours" style="width:98.3%"></div></div>
+            <span class="bar-val" style="color:var(--accent)">94.84%</span>
+          </div>
+          <div style="height:0.5rem"></div>
+          <div class="bar-row">
+            <span class="bar-label">L1-Norm 50%</span>
+            <div class="bar-track"><div class="bar-fill baseline" style="width:89.5%"></div></div>
+            <span class="bar-val">93.30%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Ours 50%</span>
+            <div class="bar-track"><div class="bar-fill ours" style="width:90.4%"></div></div>
+            <span class="bar-val" style="color:var(--accent)">94.24%</span>
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:1.5rem">
+          +0.54% at 30% sparsity, +0.94% at 50% — gap widens in high-sparsity regime where magnitude heuristics collapse.
+        </p>
+      </div>
+
+      <!-- FLOP comparison -->
+      <div class="result-card card-blue reveal">
+        <h3>FLOPs Under Hardware Budget</h3>
+        <div class="result-meta">GFLOPs at 50% Nominal Sparsity · Budget: &lt; 0.30 GFLOPs</div>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">DepGraph 50%</span>
+            <div class="bar-track">
+              <div class="bar-fill depgraph" style="width:100%"></div>
+            </div>
+            <span class="bar-val" style="color:var(--accent2)">0.33 ❌</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Ours 40%</span>
+            <div class="bar-track"><div class="bar-fill ours" style="width:78%"></div></div>
+            <span class="bar-val" style="color:var(--accent)">0.26 ✓</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Ours 50%</span>
+            <div class="bar-track"><div class="bar-fill ours" style="width:52%"></div></div>
+            <span class="bar-val" style="color:var(--accent)">0.17 ✓</span>
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:1.5rem">
+          DepGraph fails the &lt;0.30 GFLOP budget at 50% (0.33 GFLOPs, 5.90M params). Our method reaches 0.17 GFLOPs with 3.22M parameters — a 48% further reduction.
+        </p>
+      </div>
+
+      <!-- Ablation Table -->
+      <div class="result-card card-gold reveal" style="grid-column:1/-1">
+        <h3>Ablation: Importance Criteria on ResNet-50 (CIFAR-10)</h3>
+        <div class="result-meta">Mean ± std over 3 seeds · 5-epoch post-pruning fine-tune</div>
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Sparsity</th>
+              <th>Accuracy (%)</th>
+              <th>FPS</th>
+              <th>vs. L1-Norm</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>L1-Norm (Magnitude)</td>
+              <td>30%</td>
+              <td>95.55 ± 0.01</td>
+              <td>226.3 ± 4.2</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Abs Grad-Act</td>
+              <td>30%</td>
+              <td>95.68 ± 0.09</td>
+              <td>231.3 ± 4.6</td>
+              <td><span class="badge badge-gold">+0.13%</span></td>
+            </tr>
+            <tr class="highlight-row">
+              <td>Ours (Squared) ★</td>
+              <td>30%</td>
+              <td>95.68 ± 0.14</td>
+              <td>229.1 ± 3.8</td>
+              <td><span class="badge badge-gold">+0.13%</span></td>
+            </tr>
+            <tr>
+              <td>L1-Norm (Magnitude)</td>
+              <td>50%</td>
+              <td>93.30 ± 0.14</td>
+              <td>233.9 ± 4.6</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Abs Grad-Act</td>
+              <td>50%</td>
+              <td>94.26 ± 0.07</td>
+              <td>236.8 ± 2.6</td>
+              <td><span class="badge badge-gold">+0.96%</span></td>
+            </tr>
+            <tr class="highlight-row">
+              <td>Ours (Squared) ★</td>
+              <td>50%</td>
+              <td>94.24 ± 0.20</td>
+              <td>232.5 ± 2.3</td>
+              <td><span class="badge badge-gold">+0.94%</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MobileNetV2-SSD note -->
+    <div style="margin-top:2rem;padding:2rem;background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent2);" class="reveal">
+      <div style="display:flex;align-items:flex-start;gap:2rem;flex-wrap:wrap">
+        <div style="flex:2;min-width:240px">
+          <div class="section-label" style="margin-bottom:0.75rem">Object Detection · MobileNetV2-SSD · MS COCO 2017</div>
+          <p style="font-size:0.9rem;color:var(--text);line-height:1.8">
+            At 5% pruning ratio, <strong style="color:var(--accent)">Grad-Act achieves mAP 0.1438</strong> vs. L1-Norm (0.1421) and DepGraph (0.1429), under identical 1.141 GFLOPs. Our hardware-aware variant (Grad-Act + DepGraph) maintains <strong style="color:var(--accent)">~150 FPS throughout all sparsity levels</strong>, while unconstrained methods crash into a "Hardware Slowdown Zone" (&lt;70 FPS at 15–40% sparsity) due to CuDNN misalignment.
+          </p>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <table class="results-table" style="font-size:0.8rem">
+            <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Baseline mAP</td><td>0.210</td></tr>
+              <tr><td>Baseline FPS</td><td>~148</td></tr>
+              <tr><td>Ours mAP (5%)</td><td style="color:var(--accent)">0.1438</td></tr>
+              <tr><td>Ours FPS (50%)</td><td style="color:var(--accent)">~150</td></tr>
+              <tr><td>L1 crash FPS</td><td style="color:#f87171">~68</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- KEY INSIGHTS -->
+<section class="insights-section">
+  <div class="container">
+    <div class="section-label reveal">Key Findings</div>
+    <h2 class="section-title reveal">What we learned.</h2>
+    <div class="insights-grid">
+      <div class="insight-card reveal">
+        <div class="insight-icon">⚠️</div>
+        <div class="insight-title">Magnitude fails at high sparsity</div>
+        <p class="insight-text">L1-norm heuristics misidentify structurally small but functionally critical bottleneck channels. At &gt;30% sparsity, this causes catastrophic network collapse that gradient-aware methods avoid.</p>
+      </div>
+      <div class="insight-card reveal">
+        <div class="insight-icon">🔧</div>
+        <div class="insight-title">Structural constraints are non-negotiable</div>
+        <p class="insight-text">Accurate importance scores alone are insufficient. Without dependency-aware structural alignment, pruning introduces tensor mismatches that halve inference throughput on real hardware.</p>
+      </div>
+      <div class="insight-card reveal">
+        <div class="insight-icon">🎯</div>
+        <div class="insight-title">10 calibration samples suffice</div>
+        <p class="insight-text">Performance remains stable between 10–500 calibration samples (95.52%–95.88% accuracy). Even with 10 samples, global importance scoring completes in under 0.25 seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="compare-section" id="comparison">
+  <div class="container">
+    <div class="section-label reveal">Positioning</div>
+    <h2 class="section-title reveal">How we compare<br/>to prior work.</h2>
+    <div class="compare-table-wrap reveal">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Data-Driven</th>
+            <th>Global Scoring</th>
+            <th>HW-Aware</th>
+            <th>No Retraining</th>
+            <th>Detection</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>L1-Norm <span style="font-size:0.75rem;color:var(--muted)">[Li et al., 2017]</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="partial">~</span></td>
+          </tr>
+          <tr>
+            <td>OBD/OBS <span style="font-size:0.75rem;color:var(--muted)">[LeCun 1989, Hassibi 1993]</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Taylor Pruning <span style="font-size:0.75rem;color:var(--muted)">[Molchanov et al., 2017]</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>DepGraph <span style="font-size:0.75rem;color:var(--muted)">[Fang et al., 2023]</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>ELASTIC <span style="font-size:0.75rem;color:var(--muted)">[Tran et al., 2026]</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr class="ours-row">
+            <td><strong>Taylor-Made Sparsity (Ours)</strong></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- CITATION -->
+<section class="citation-section" id="citation">
+  <div class="container">
+    <div class="section-label reveal">Citation</div>
+    <h2 class="section-title reveal">Cite this work.</h2>
+    <div class="bibtex-block reveal" id="bibtex">
+      <span class="kw">@inproceedings</span>{<span class="val">shukla2026taylor</span>,<br/>
+      &nbsp;&nbsp;<span class="field">title</span>     = {<span class="val">Taylor-Made Sparsity: First-Order Approximation for Structural Pruning in Object Detectors</span>},<br/>
+      &nbsp;&nbsp;<span class="field">author</span>    = {<span class="val">Shukla, Abhinav and Bajaj, Shefali and Tapas, Nachiket</span>},<br/>
+      &nbsp;&nbsp;<span class="field">booktitle</span> = {<span class="val">Advances in Neural Information Processing Systems (NeurIPS)</span>},<br/>
+      &nbsp;&nbsp;<span class="field">year</span>      = {<span class="val">2026</span>},<br/>
+      &nbsp;&nbsp;<span class="field">note</span>      = {<span class="val">Under Review</span>}<br/>
+      }
+    </div>
+    <button class="copy-btn" onclick="copyBibtex()">Copy BibTeX</button>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-text">
+    Submitted to NeurIPS 2026 · Abhinav Shukla, Shefali Bajaj, Nachiket Tapas
+  </div>
+  <div class="footer-logo">Taylor-Made Sparsity</div>
+  <div class="footer-text">
+    Reproducible code & pretrained models in supplementary material
+  </div>
+</footer>
+
+<script>
+// Reveal on scroll
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 60);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+reveals.forEach(el => observer.observe(el));
+
+// Animate bars when visible
+const bars = document.querySelectorAll('.bar-fill');
+const barObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const target = e.target;
+      const w = target.style.width;
+      target.style.width = '0';
+      setTimeout(() => { target.style.width = w; }, 100);
+      barObserver.unobserve(target);
+    }
+  });
+}, { threshold: 0.5 });
+bars.forEach(b => barObserver.observe(b));
+
+// Copy bibtex
+function copyBibtex() {
+  const text = `@inproceedings{shukla2026taylor,
+  title     = {Taylor-Made Sparsity: First-Order Approximation for Structural Pruning in Object Detectors},
+  author    = {Shukla, Abhinav and Bajaj, Shefali and Tapas, Nachiket},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026},
+  note      = {Under Review}
+}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy BibTeX', 2000);
+  });
+}
+</script>
+</body>
+</html>
